@@ -1,53 +1,120 @@
+From a586d3a4be121301d109a9988185d572a5ad6a0b Mon Sep 17 00:00:00 2001
+From: Max Horn <max@quendi.de>
+Date: Wed, 15 Mar 2017 12:39:26 +0100
+Subject: [PATCH] kernel: introduce GAP_PATH_MAX
+
+Some places in our code were limited to paths of length 256, some had
+512 as limit. Now they all use the new constant GAP_PATH_MAX as limit,
+which is set to 512 for now, but could be increased later on.
+
+Note that most operating systems don't actually impose a limit on path
+lengths (and if they do, it tends to be much larger), so this isn't the
+final word. But it's at least a start.
+
+We also extend libGAP_SyFindGapRootFile to support output buffers of arbitrary
+size, and adapt libGAP_SyFindOrLinkGapRootFile accordingly. Also cleanup
+libGAP_SyFindOrLinkGapRootFile and remove various redundant buffers and copying
+operations.
+---
+ src/sysfiles.c | 42 +++++++++++++-----------------------------
+ src/sysfiles.h | 12 +++++-------
+ src/system.c   | 18 +++++++++---------
+ src/system.h   | 30 ++++++++++++++++++------------
+ 4 files changed, 45 insertions(+), 57 deletions(-)
+
 diff --git a/src/sysfiles.c b/src/sysfiles.c
-index 4a81595..cb75df9 100644
+index 43616d5..013d34c 100644
 --- a/src/sysfiles.c
 +++ b/src/sysfiles.c
-@@ -141,10 +141,10 @@ libGAP_Int libGAP_SyFindOrLinkGapRootFile (
+@@ -135,10 +135,7 @@ libGAP_Int libGAP_SyFindOrLinkGapRootFile (
+     libGAP_UInt4               crc_sta = 0;
      libGAP_Int                 found_gap = 0;
-     libGAP_Int                 found_dyn = 0;
      libGAP_Int                 found_sta = 0;
 -    libGAP_Char                tmpbuffer[256];
-+    libGAP_Char                tmpbuffer[512];
-     libGAP_Char *              tmp;
+-    libGAP_Char *              tmp;
 -    libGAP_Char                libGAP_module[256];
 -    libGAP_Char                name[256];
-+    libGAP_Char                libGAP_module[512];
-+    libGAP_Char                name[512];
-     libGAP_StructInitInfo *    info_dyn = 0;
++    libGAP_Char                libGAP_module[libGAP_GAP_PATH_MAX];
+ 
      libGAP_StructInitInfo *    info_sta = 0;
      libGAP_Int                 k;
-@@ -809,7 +809,7 @@ libGAP_Char * libGAP_SyWinCmd (
- **  stores buffers for the relatively few files that need them.
+@@ -146,18 +143,8 @@ libGAP_Int libGAP_SyFindOrLinkGapRootFile (
+ 
+     /* find the GAP file                                                   */
+     result->pathname[0] = '\0';
+-    tmp = libGAP_SyFindGapRootFile(filename, tmpbuffer);
+-    if ( tmp ) {
+-        libGAP_strxcpy( result->pathname, tmp, sizeof(result->pathname) );
+-        libGAP_strxcpy( name, tmp, sizeof(name) );
+-    }
+-    if ( result->pathname[0] ) {
+-        if ( libGAP_SyIsReadableFile(result->pathname) == 0 ) {
+-            found_gap = 1;
+-        }
+-        else {
+-            result->pathname[0] = '\0';
+-        }
++    if ( libGAP_SyFindGapRootFile(filename, result->pathname, sizeof(result->pathname)) ) {
++        found_gap = 1;
+     }
+     if ( ! libGAP_SyUseModule ) {
+         return ( found_gap ? 3 : 0 );
+@@ -179,20 +166,17 @@ libGAP_Int libGAP_SyFindOrLinkGapRootFile (
+         }
+     }
+ 
+-
+-
+     /* check if we have to compute the crc                                 */
+     if ( found_gap && ( found_sta ) ) {
+         if ( crc_gap == 0 ) {
+-            crc_gap = libGAP_SyGAPCRC(name);
++            crc_gap = libGAP_SyGAPCRC(result->pathname);
+         } else if ( libGAP_SyCheckCRCCompiledModule ) {
+-            if ( crc_gap != libGAP_SyGAPCRC(name) ) {
++            if ( crc_gap != libGAP_SyGAPCRC(result->pathname) ) {
+                 return 4;
+             }
+         }
+     }
+ 
+-
+     /* now decide what to do                                               */
+     if ( found_gap && found_sta && crc_gap != crc_sta ) {
+         Pr("#W Static module %s has CRC mismatch, ignoring\n", (libGAP_Int) filename, 0);
+@@ -3493,22 +3477,22 @@ Obj libGAP_SyIsDir ( const libGAP_Char * name )
+ **
+ *F  libGAP_SyFindGapRootFile( <filename>,<buffer> ) . .  find file in system area
  */
+-libGAP_Char * libGAP_SyFindGapRootFile ( const libGAP_Char * filename, libGAP_Char * result )
++libGAP_Char * libGAP_SyFindGapRootFile ( const libGAP_Char * filename, libGAP_Char * buffer, size_t bufferSize )
+ {
+-    libGAP_Int             k;
++    libGAP_Int k;
  
--libGAP_SYS_SY_BUF libGAP_syBuf [256];
-+libGAP_SYS_SY_BUF libGAP_syBuf [512];
- 
- libGAP_SYS_SY_BUFFER libGAP_syBuffers [ 32];
- 
-@@ -1773,7 +1773,7 @@ void libGAP_syEchos (
- **  'SyFputs' is called to put the  <line>  to the file identified  by <fid>.
- */
- libGAP_UInt   libGAP_syNrchar;                        /* nr of chars already on the line */
--libGAP_Char   libGAP_syPrompt [256];                  /* characters already on the line   */
-+libGAP_Char   libGAP_syPrompt [512];                  /* characters already on the line   */
- 
- 
- 
-@@ -3913,9 +3913,9 @@ libGAP_Char * libGAP_SyFindGapRootFile ( const libGAP_Char * filename, libGAP_Ch
-     for ( k=0;  k<sizeof(libGAP_SyGapRootPaths)/sizeof(libGAP_SyGapRootPaths[0]);  k++ ) {
+-    for ( k=0;  k<sizeof(libGAP_SyGapRootPaths)/sizeof(libGAP_SyGapRootPaths[0]);  k++ ) {
++    for ( k = 0; k < sizeof(libGAP_SyGapRootPaths)/sizeof(libGAP_SyGapRootPaths[0]); k++ ) {
          if ( libGAP_SyGapRootPaths[k][0] ) {
-             result[0] = '\0';
+-            result[0] = '\0';
 -            if (libGAP_strlcpy( result, libGAP_SyGapRootPaths[k], 256 ) >= 256)
-+            if (libGAP_strlcpy( result, libGAP_SyGapRootPaths[k], 512 ) >= 512)
++            if (libGAP_strlcpy( buffer, libGAP_SyGapRootPaths[k], bufferSize ) >= bufferSize)
                  continue;
 -            if (libGAP_strlcat( result, filename, 256 ) >= 256)
-+            if (libGAP_strlcat( result, filename, 512 ) >= 512)
++            if (libGAP_strlcat( buffer, filename, bufferSize ) >= bufferSize)
              	continue;
-             if ( libGAP_SyIsReadableFile(result) == 0 ) {
-                 return result;
+-            if ( libGAP_SyIsReadableFile(result) == 0 ) {
+-                return result;
++            if ( libGAP_SyIsReadableFile(buffer) == 0 ) {
++                return buffer;
+             }
+         }
+     }
++    buffer[0] = '\0';
+     return 0;
+ }
+ 
 diff --git a/src/sysfiles.h b/src/sysfiles.h
-index 6648256..bd05e33 100644
+index fe887d9..c8cfc69 100644
 --- a/src/sysfiles.h
 +++ b/src/sysfiles.h
 @@ -47,7 +47,7 @@
@@ -55,38 +122,48 @@ index 6648256..bd05e33 100644
  
  typedef union {
 -  libGAP_Char pathname[256];
-+  libGAP_Char pathname[512];
++  libGAP_Char pathname[libGAP_GAP_PATH_MAX];
    libGAP_StructInitInfo * module_info;
  } libGAP_TypGRF_Data;
  
-@@ -155,7 +155,7 @@ typedef struct {
-   libGAP_UInt buflen;
- } libGAP_SYS_SY_BUFFER;
+@@ -526,14 +526,12 @@ extern Obj libGAP_SyIsDir (
  
--extern libGAP_SYS_SY_BUF libGAP_syBuf [256];
-+extern libGAP_SYS_SY_BUF libGAP_syBuf [512];
+ /****************************************************************************
+ **
+-*F  SyFindGapRootFile( <filename>, <buffer> ) . . .  find file in system area
++*F  SyFindGapRootFile( <filename>, <buffer>, <bufferSize> ) . . .  find file in system area
+ **
+-**  <buffer> must point to a buffer of at least 256 characters. The returned
+-**  pointer will either be NULL, or into <buffer>
++**  <buffer> must point to a buffer of at least <bufferSize> characters.
++**  The returned pointer will either be NULL, or <buffer>
+ */
+-extern libGAP_Char * libGAP_SyFindGapRootFile (
+-            const libGAP_Char *    filename,
+-            libGAP_Char *          buffer);
++extern libGAP_Char *libGAP_SyFindGapRootFile(const libGAP_Char *filename, libGAP_Char *buffer, size_t bufferSize);
  
- extern libGAP_SYS_SY_BUFFER libGAP_syBuffers[32];
  
+ /****************************************************************************
 diff --git a/src/system.c b/src/system.c
-index cd04706..8f1b149 100644
+index 29a9164..262aff2 100644
 --- a/src/system.c
 +++ b/src/system.c
-@@ -167,7 +167,7 @@ libGAP_Int libGAP_SyCheckCRCCompiledModule;
+@@ -170,7 +170,7 @@ libGAP_Int libGAP_SyCheckCRCCompiledModule;
  **
  *V  SyCompileInput  . . . . . . . . . . . . . . . . . .  from this input file
  */
 -libGAP_Char libGAP_SyCompileInput [256];
-+libGAP_Char libGAP_SyCompileInput [512];
++libGAP_Char libGAP_SyCompileInput[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
-@@ -181,20 +181,20 @@ libGAP_Char * libGAP_SyCompileMagic1;
+@@ -184,20 +184,20 @@ libGAP_Char * libGAP_SyCompileMagic1;
  **
  *V  SyCompileName . . . . . . . . . . . . . . . . . . . . . .  with this name
  */
 -libGAP_Char libGAP_SyCompileName [256];
-+libGAP_Char libGAP_SyCompileName [512];
++libGAP_Char libGAP_SyCompileName[256];
  
  
  /****************************************************************************
@@ -94,54 +171,87 @@ index cd04706..8f1b149 100644
  *V  SyCompileOutput . . . . . . . . . . . . . . . . . . into this output file
  */
 -libGAP_Char libGAP_SyCompileOutput [256];
-+libGAP_Char libGAP_SyCompileOutput [512];
++libGAP_Char libGAP_SyCompileOutput[libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
  *V  SyCompileOutput . . . . . . . . . . . . . . . . . . into this output file
  */
 -libGAP_Char libGAP_SyCompileOptions [256] = {'\0'};
-+libGAP_Char libGAP_SyCompileOptions [512] = {'\0'};
++libGAP_Char libGAP_SyCompileOptions[256] = {'\0'};
  
  
  /****************************************************************************
-@@ -252,7 +252,7 @@ libGAP_Int libGAP_IgnoreGapRC;
+@@ -237,9 +237,9 @@ libGAP_Int libGAP_SyDebugLoading;
+ **
+ #define MAX_GAP_DIRS 128
+ */
+-libGAP_Char libGAP_SyGapRootPaths [libGAP_MAX_GAP_DIRS] [512];
++libGAP_Char libGAP_SyGapRootPaths[libGAP_MAX_GAP_DIRS][libGAP_GAP_PATH_MAX];
+ #if HAVE_DOTGAPRC
+-libGAP_Char libGAP_DotGapPath[512];
++libGAP_Char libGAP_DotGapPath[libGAP_GAP_PATH_MAX];
+ #endif
+ 
+ /****************************************************************************
+@@ -255,7 +255,7 @@ libGAP_Int IgnoreGapRC;
  *V  SyUserHome . . . . . . . . . . . . .  path of users home (it is exists)
  */
  libGAP_Int libGAP_SyHasUserHome;
 -libGAP_Char libGAP_SyUserHome [256];
-+libGAP_Char libGAP_SyUserHome [512];
++libGAP_Char libGAP_SyUserHome[libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
-@@ -420,7 +420,7 @@ libGAP_Int libGAP_SyStorMin;
+@@ -423,7 +423,7 @@ libGAP_Int libGAP_SyStorMin;
  **
- *V  SySystemInitFile  . . . . . . . . . . .  name of the system "init.g" file
+ *V  SylibGAP_SystemInitFile  . . . . . . . . . . .  name of the system "init.g" file
  */
 -libGAP_Char libGAP_SySystemInitFile [256];
-+libGAP_Char libGAP_SySystemInitFile [512];
++libGAP_Char libGAP_SySystemInitFile[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
+@@ -2125,7 +2125,7 @@ void InitlibGAP_System (
+            with a tilde ~ */
+         for (i = 0; i < MAX_GAP_DIRS && libGAP_SyGapRootPaths[i][0]; i++) {
+           if (libGAP_SyGapRootPaths[i][0] == '~' && 
+-              strlen(libGAP_SyUserHome)+strlen(libGAP_SyGapRootPaths[i]) < 512) {
++              strlen(libGAP_SyUserHome)+strlen(libGAP_SyGapRootPaths[i]) < sizeof(libGAP_SyGapRootPaths[i])) {
+             memmove(libGAP_SyGapRootPaths[i]+strlen(libGAP_SyUserHome),
+                     /* don't copy the ~ but the trailing '\0' */
+                     libGAP_SyGapRootPaths[i]+1, strlen(libGAP_SyGapRootPaths[i]));
 diff --git a/src/system.h b/src/system.h
-index 403fe6d..6405677 100644
+index d049d60..10dab22 100644
 --- a/src/system.h
 +++ b/src/system.h
-@@ -267,7 +267,7 @@ extern libGAP_Int libGAP_SyCheckCRCCompiledModule;
+@@ -94,6 +94,11 @@
+ #endif
+ 
+ 
++enum {
++    libGAP_GAP_PATH_MAX = 512
++};
++
++
+ /* Define as 1 if your systems uses '/' as path separator.
+ 
+ /****************************************************************************
+@@ -227,7 +232,7 @@ extern libGAP_Int libGAP_SyCheckCRCCompiledModule;
  **
  *V  SyCompileInput  . . . . . . . . . . . . . . . . . .  from this input file
  */
 -extern libGAP_Char libGAP_SyCompileInput [256];
-+extern libGAP_Char libGAP_SyCompileInput [512];
++extern libGAP_Char libGAP_SyCompileInput[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
-@@ -281,20 +281,20 @@ extern libGAP_Char * libGAP_SyCompileMagic1;
+@@ -241,20 +246,20 @@ extern libGAP_Char * libGAP_SyCompileMagic1;
  **
  *V  SyCompileName . . . . . . . . . . . . . . . . . . . . . .  with this name
  */
 -extern libGAP_Char libGAP_SyCompileName [256];
-+extern libGAP_Char libGAP_SyCompileName [512];
++extern libGAP_Char libGAP_SyCompileName[256];
  
  
  /****************************************************************************
@@ -149,32 +259,67 @@ index 403fe6d..6405677 100644
  *V  SyCompileOutput . . . . . . . . . . . . . . . . . . into this output file
  */
 -extern libGAP_Char libGAP_SyCompileOutput [256];
-+extern libGAP_Char libGAP_SyCompileOutput [512];
++extern libGAP_Char libGAP_SyCompileOutput[libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
  *V  SyCompileOptions . . . . . . . . . . . . . . . . . with these options
  */
 -extern libGAP_Char libGAP_SyCompileOptions [256];
-+extern libGAP_Char libGAP_SyCompileOptions [512];
++extern libGAP_Char libGAP_SyCompileOptions[256];
  
  
  /****************************************************************************
-@@ -376,7 +376,7 @@ extern libGAP_Char libGAP_SyGapRCFilename [512];
+@@ -290,11 +295,12 @@ extern libGAP_Int libGAP_SyDebugLoading;
+ **  
+ **  Put in this package because the command line processing takes place here.
+ */
+-#define libGAP_MAX_GAP_DIRS 128
+-
+-extern libGAP_Char libGAP_SyGapRootPaths [libGAP_MAX_GAP_DIRS] [512];
++enum {
++    libGAP_MAX_GAP_DIRS = 128
++};
++extern libGAP_Char libGAP_SyGapRootPaths[libGAP_MAX_GAP_DIRS][libGAP_GAP_PATH_MAX];
+ #if HAVE_DOTGAPRC
+-extern libGAP_Char libGAP_DotGapPath[512];
++extern libGAP_Char libGAP_DotGapPath[libGAP_GAP_PATH_MAX];
+ #endif
+ 
+ /****************************************************************************
+@@ -312,7 +318,7 @@ extern libGAP_Char DotGapPath[512];
+ **
+ **  For UNIX this list contains 'LIBNAME/init.g' and '$HOME/.gaprc'.
+ */
+-extern libGAP_Char libGAP_SyInitfiles [32] [512];
++extern libGAP_Char libGAP_SyInitfiles[32][libGAP_GAP_PATH_MAX];
+ 
+ /****************************************************************************
+ **
+@@ -328,7 +334,7 @@ extern libGAP_Char libGAP_SyPkgnames [SY_MAX_PKGNR][16];
+ **
+ *V  SyGapRCFilename . . . . . . . . . . . . . . . filename of the gaprc file
+ */
+-extern libGAP_Char libGAP_SyGapRCFilename [512];
++extern libGAP_Char libGAP_SyGapRCFilename[libGAP_GAP_PATH_MAX];
+ 
+ /****************************************************************************
+ **
+@@ -336,7 +342,7 @@ extern libGAP_Char libGAP_SyGapRCFilename [512];
  *V  SyUserHome . . . . . . . . . . . . .  path of users home (it is exists)
  */
  extern libGAP_Int libGAP_SyHasUserHome;
 -extern libGAP_Char libGAP_SyUserHome [256];
-+extern libGAP_Char libGAP_SyUserHome [512];
++extern libGAP_Char libGAP_SyUserHome[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
-@@ -544,7 +544,7 @@ extern libGAP_Int libGAP_SyStorMin;
+@@ -504,7 +510,7 @@ extern libGAP_Int libGAP_SyStorMin;
  **
  *V  SySystemInitFile  . . . . . . . . . . .  name of the system "init.g" file
  */
 -extern libGAP_Char libGAP_SySystemInitFile [256];
-+extern libGAP_Char libGAP_SySystemInitFile [512];
++extern libGAP_Char libGAP_SySystemInitFile[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
