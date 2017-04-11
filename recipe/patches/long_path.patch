@@ -34,7 +34,7 @@ index 43616d5..013d34c 100644
 -    libGAP_Char *              tmp;
 -    libGAP_Char                libGAP_module[256];
 -    libGAP_Char                name[256];
-+    libGAP_Char                libGAP_module[GAP_PATH_MAX];
++    libGAP_Char                libGAP_module[libGAP_GAP_PATH_MAX];
  
      libGAP_StructInitInfo *    info_sta = 0;
      libGAP_Int                 k;
@@ -122,7 +122,7 @@ index fe887d9..c8cfc69 100644
  
  typedef union {
 -  libGAP_Char pathname[256];
-+  libGAP_Char pathname[GAP_PATH_MAX];
++  libGAP_Char pathname[libGAP_GAP_PATH_MAX];
    libGAP_StructInitInfo * module_info;
  } libGAP_TypGRF_Data;
  
@@ -154,7 +154,7 @@ index 29a9164..262aff2 100644
  *V  SyCompileInput  . . . . . . . . . . . . . . . . . .  from this input file
  */
 -libGAP_Char libGAP_SyCompileInput [256];
-+libGAP_Char libGAP_SyCompileInput[GAP_PATH_MAX];
++libGAP_Char libGAP_SyCompileInput[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
@@ -171,7 +171,7 @@ index 29a9164..262aff2 100644
  *V  SyCompileOutput . . . . . . . . . . . . . . . . . . into this output file
  */
 -libGAP_Char libGAP_SyCompileOutput [256];
-+libGAP_Char libGAP_SyCompileOutput[GAP_PATH_MAX];
++libGAP_Char libGAP_SyCompileOutput[libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
@@ -187,10 +187,10 @@ index 29a9164..262aff2 100644
  #define MAX_GAP_DIRS 128
  */
 -libGAP_Char libGAP_SyGapRootPaths [libGAP_MAX_GAP_DIRS] [512];
-+libGAP_Char libGAP_SyGapRootPaths[libGAP_MAX_GAP_DIRS][GAP_PATH_MAX];
++libGAP_Char libGAP_SyGapRootPaths[libGAP_MAX_GAP_DIRS][libGAP_GAP_PATH_MAX];
  #if HAVE_DOTGAPRC
 -libGAP_Char libGAP_DotGapPath[512];
-+libGAP_Char libGAP_DotGapPath[GAP_PATH_MAX];
++libGAP_Char libGAP_DotGapPath[libGAP_GAP_PATH_MAX];
  #endif
  
  /****************************************************************************
@@ -199,7 +199,7 @@ index 29a9164..262aff2 100644
  */
  libGAP_Int libGAP_SyHasUserHome;
 -libGAP_Char libGAP_SyUserHome [256];
-+libGAP_Char libGAP_SyUserHome[GAP_PATH_MAX];
++libGAP_Char libGAP_SyUserHome[libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
@@ -208,7 +208,7 @@ index 29a9164..262aff2 100644
  *V  SylibGAP_SystemInitFile  . . . . . . . . . . .  name of the system "init.g" file
  */
 -libGAP_Char libGAP_SySystemInitFile [256];
-+libGAP_Char libGAP_SySystemInitFile[GAP_PATH_MAX];
++libGAP_Char libGAP_SySystemInitFile[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
@@ -242,7 +242,7 @@ index d049d60..10dab22 100644
  *V  SyCompileInput  . . . . . . . . . . . . . . . . . .  from this input file
  */
 -extern libGAP_Char libGAP_SyCompileInput [256];
-+extern libGAP_Char libGAP_SyCompileInput[GAP_PATH_MAX];
++extern libGAP_Char libGAP_SyCompileInput[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
@@ -259,7 +259,7 @@ index d049d60..10dab22 100644
  *V  SyCompileOutput . . . . . . . . . . . . . . . . . . into this output file
  */
 -extern libGAP_Char libGAP_SyCompileOutput [256];
-+extern libGAP_Char libGAP_SyCompileOutput[GAP_PATH_MAX];
++extern libGAP_Char libGAP_SyCompileOutput[libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
@@ -280,10 +280,10 @@ index d049d60..10dab22 100644
 +enum {
 +    libGAP_MAX_GAP_DIRS = 128
 +};
-+extern libGAP_Char libGAP_SyGapRootPaths[libGAP_MAX_GAP_DIRS][GAP_PATH_MAX];
++extern libGAP_Char libGAP_SyGapRootPaths[libGAP_MAX_GAP_DIRS][libGAP_GAP_PATH_MAX];
  #if HAVE_DOTGAPRC
 -extern libGAP_Char libGAP_DotGapPath[512];
-+extern libGAP_Char libGAP_DotGapPath[GAP_PATH_MAX];
++extern libGAP_Char libGAP_DotGapPath[libGAP_GAP_PATH_MAX];
  #endif
  
  /****************************************************************************
@@ -292,7 +292,7 @@ index d049d60..10dab22 100644
  **  For UNIX this list contains 'LIBNAME/init.g' and '$HOME/.gaprc'.
  */
 -extern libGAP_Char libGAP_SyInitfiles [32] [512];
-+extern libGAP_Char libGAP_SyInitfiles[32][GAP_PATH_MAX];
++extern libGAP_Char libGAP_SyInitfiles[32][libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
@@ -301,7 +301,7 @@ index d049d60..10dab22 100644
  *V  SyGapRCFilename . . . . . . . . . . . . . . . filename of the gaprc file
  */
 -extern libGAP_Char libGAP_SyGapRCFilename [512];
-+extern libGAP_Char libGAP_SyGapRCFilename[GAP_PATH_MAX];
++extern libGAP_Char libGAP_SyGapRCFilename[libGAP_GAP_PATH_MAX];
  
  /****************************************************************************
  **
@@ -310,7 +310,7 @@ index d049d60..10dab22 100644
  */
  extern libGAP_Int libGAP_SyHasUserHome;
 -extern libGAP_Char libGAP_SyUserHome [256];
-+extern libGAP_Char libGAP_SyUserHome[GAP_PATH_MAX];
++extern libGAP_Char libGAP_SyUserHome[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
@@ -319,7 +319,7 @@ index d049d60..10dab22 100644
  *V  SySystemInitFile  . . . . . . . . . . .  name of the system "init.g" file
  */
 -extern libGAP_Char libGAP_SySystemInitFile [256];
-+extern libGAP_Char libGAP_SySystemInitFile[GAP_PATH_MAX];
++extern libGAP_Char libGAP_SySystemInitFile[libGAP_GAP_PATH_MAX];
  
  
  /****************************************************************************
