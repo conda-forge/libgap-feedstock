@@ -21,16 +21,17 @@ build:
 
 requirements:
   build:
-    - toolchain
     - libtool
     - automake
+    - {{ compiler('c') }}
+  host:
     - gap {{ version }}
-    - gmp >=5.0.1,<7
-    - mpfr 4.*
+    - gmp
+    - mpfr
   run:
     - gap {{ version }}
-    - gmp >=5.0.1,<7
-    - mpfr 4.*
+    - gmp
+    - mpfr
 
 test:
   commands:
